@@ -1,8 +1,10 @@
 node_modules/
+frontend/node_modules/
 __pycache__/
+*.pkl
+*.zip
 *.pyc
 .env
 dist/
 build/
-.DS_Store
-*.pkl
+*.txt

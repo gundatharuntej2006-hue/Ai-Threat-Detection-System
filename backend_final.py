@@ -7,7 +7,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.metrics import accuracy_score, confusion_matrix
+frocls
+m sklearn.metrics import accuracy_score, confusion_matrix
 
 app = Flask(__name__)
 CORS(app)
