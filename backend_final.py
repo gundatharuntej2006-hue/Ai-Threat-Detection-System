@@ -3,12 +3,12 @@ from flask_cors import CORS
 import joblib
 import pandas as pd
 import numpy as np
+import os
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-frocls
-m sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 app = Flask(__name__)
 CORS(app)
@@ -31,11 +31,17 @@ FEATURES = [
 
 cols = FEATURES + ["label", "difficulty"]
 
-# ── Compute metrics at startup (synchronous) ──────────
 print("Loading dataset and training models for metrics...")
+METRICS = {"error": "Not loaded yet"}
+
 try:
-    df = pd.read_csv("KDDTrain+.txt", header=None, names=cols)
+    base_dir  = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "KDDTrain+.txt")
+    print(f"Looking for dataset at: {file_path}")
+
+    df = pd.read_csv(file_path, header=None, names=cols)
     df.drop("difficulty", axis=1, inplace=True)
+    print(f"Dataset loaded: {df.shape}")
 
     def map_threat(label):
         if label == "normal": return "LOW"
@@ -47,18 +53,18 @@ try:
     df.drop("label", axis=1, inplace=True)
 
     le = LabelEncoder()
-    for col in ["protocol_type","service","flag"]:
+    for col in ["protocol_type", "service", "flag"]:
         df[col] = le.fit_transform(df[col])
 
     le2 = LabelEncoder()
     df["threat_level"] = le2.fit_transform(df["threat_level"])
     CLASSES = le2.classes_.tolist()
+    print(f"Classes: {CLASSES}")
 
     X = df.drop("threat_level", axis=1)
     y = df["threat_level"]
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     sc = StandardScaler()
     X_train_s = sc.fit_transform(X_train)
@@ -81,7 +87,7 @@ try:
     print(f"LR done: {lr_acc}%")
 
     METRICS = {
-        "classes": CLASSES,
+        "classes":             CLASSES,
         "random_forest":       {"accuracy": rf_acc, "confusion_matrix": rf_cm},
         "logistic_regression": {"accuracy": lr_acc, "confusion_matrix": lr_cm},
     }
@@ -95,22 +101,19 @@ except Exception as e:
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
-        data   = request.get_json()
-        row    = {f: data.get(f, 0) for f in FEATURES}
-        df2    = pd.DataFrame([row])
-        scaled = scaler.transform(df2)
-        pred   = model.predict(scaled)[0]
-        proba  = model.predict_proba(scaled)[0].tolist()
-        threat = le_target.inverse_transform([pred])[0]
-        conf   = float(max(proba))
+        data    = request.get_json()
+        row     = {f: data.get(f, 0) for f in FEATURES}
+        df2     = pd.DataFrame([row])
+        scaled  = scaler.transform(df2)
+        pred    = model.predict(scaled)[0]
+        proba   = model.predict_proba(scaled)[0].tolist()
+        threat  = le_target.inverse_transform([pred])[0]
+        conf    = float(max(proba))
         classes = le_target.classes_.tolist()
         return jsonify({
             "threat":        threat,
             "confidence":    round(conf * 100, 2),
-            "probabilities": {
-                cls: round(float(p) * 100, 2)
-                for cls, p in zip(classes, proba)
-            }
+            "probabilities": {cls: round(float(p)*100,2) for cls,p in zip(classes,proba)}
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
